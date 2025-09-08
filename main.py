@@ -93,7 +93,7 @@ if __name__ == '__main__':
                     # Print progress
                     current_eval = len(evaluation_history)
                     if current_eval % 5 == 0:
-                        print(f"Evaluation {current_eval}/30: Best score = {best_container['score']:.2f}, Current = {fitness_score:.2f}")
+                        print(f"Evaluation {current_eval}/{bo_n_calls}: Best score = {best_container['score']:.2f}, Current = {fitness_score:.2f}")
                     
                     return -fitness_score  # Negative vì gp_minimize tìm minimum
                     
@@ -186,9 +186,8 @@ if __name__ == '__main__':
                             matrix_str = "[\n" + ",\n".join([
                                 "    [" + ", ".join(f"{v:.3f}" for v in row) + "]" for row in best_latent_cor_matrix
                             ]) + "\n]"
-                            # Regex: chỉ thay thế đúng block khai báo biến (không phải comment, không bị lặp)
-                            # Tìm dòng bắt đầu khai báo biến (không phải comment), thay thế block tiếp theo là list
-                            pattern = r"^latent_correlation_matrix\s*=\s*\[[\s\S]*?^\]"  # ^ ở đầu dòng, không phải comment
+                            # Regex: tìm cả trường hợp latent_correlation_matrix = None và latent_correlation_matrix = [[...]]
+                            pattern = r"^latent_correlation_matrix\s*=\s*(None|\[[\s\S]*?^\])"  # ^ ở đầu dòng, không phải comment
                             new_code = re.sub(
                                 pattern,
                                 f"latent_correlation_matrix = {matrix_str}",

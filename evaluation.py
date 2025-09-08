@@ -203,6 +203,19 @@ def evaluate_parameters_wrapper(args):
 
     total_score = (cronbach_alpha_score + efa_score + r_squared_score +
                    beta_significance_score + beta_order_score + negative_beta_penalty)
+    # Convert numpy floats to regular Python floats for cleaner display
+    def convert_numpy_floats(obj):
+        if isinstance(obj, dict):
+            return {k: convert_numpy_floats(v) for k, v in obj.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [convert_numpy_floats(v) for v in obj]
+        elif isinstance(obj, (np.float64, np.float32, np.float16)):
+            return float(obj)
+        elif isinstance(obj, (np.int64, np.int32, np.int16, np.int8)):
+            return int(obj)
+        else:
+            return obj
+    
     # Return all sub-scores for diagnostics if no hard penalty
     detail = {
         'total_score': total_score,
@@ -213,4 +226,9 @@ def evaluate_parameters_wrapper(args):
         'beta_order_score': beta_order_score,
         'negative_beta_penalty': negative_beta_penalty
     }
+    
+    # Convert all numpy types to Python native types
+    total_score = convert_numpy_floats(total_score)
+    detail = convert_numpy_floats(detail)
+    
     return total_score, detail

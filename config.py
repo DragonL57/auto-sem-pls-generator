@@ -17,14 +17,7 @@
 #
 # Lưu ý: Nếu bạn thêm/bớt latent factor, phải cập nhật lại số dòng/cột cho đúng!
 #
-latent_correlation_matrix = [
-    [1.000, 0.230, 0.204, 0.464, 0.366, 0.170],
-    [0.230, 1.000, 0.290, 0.265, 0.481, 0.424],
-    [0.204, 0.290, 1.000, 0.376, 0.274, 0.298],
-    [0.464, 0.265, 0.376, 1.000, 0.483, 0.307],
-    [0.366, 0.481, 0.274, 0.483, 1.000, 0.145],
-    [0.170, 0.424, 0.298, 0.307, 0.145, 1.000]
-]
+latent_correlation_matrix = None
 
 # ================= HƯỚNG DẪN CHỈNH MÔ HÌNH HỒI QUY =================
 # - Chỉ cần chỉnh sửa danh sách factors_config và regression_models bên dưới để thay đổi mô hình, biến độc lập/phụ thuộc, hoặc thêm biến interaction.
@@ -32,15 +25,17 @@ latent_correlation_matrix = [
 # - KHÔNG cần sửa bất kỳ file nào khác ngoài config.py, mọi thứ sẽ tự động cập nhật.
 # - File kết quả sẽ xuất ra là output.xlsx trong thư mục output.
 #
-# ================== MÔ HÌNH: Ý ĐỊNH TIẾP TỤC SỬ DỤNG APP NGÂN HÀNG AI ==================
+# ================== MÔ HÌNH: Ý ĐỊNH SỬ DỤNG XE ĐIỆN ==================
 #
 # 1. Các latent factors và số lượng biến quan sát:
-#   - PI: 5 biến (PI1–PI5)
-#   - PA: 5 biến (PA1–PA5)
-#   - CONF: 4 biến (CONF1–CONF4)
-#   - PU: 4 biến (PU1–PU4)
-#   - SAT: 4 biến (SAT1–SAT4)
-#   - CI: 2 biến (CI1–CI2)
+#   - SI: 3 biến (SI1, SI2, SI3) - Ảnh hưởng xã hội
+#   - GOV: 6 biến (GOV1, GOV2, GOV3, GOV4, GOV5, GOV6) - Chính phủ
+#   - LCI: 3 biến (LCI1, LCI2, LCI3) - Cơ sở hạ tầng sạc
+#   - PU: 3 biến (PU1, PU2, PU3) - Nhận thức hữu ích
+#   - PE: 3 biến (PE1, PE2, PE3) - Nhận thức dễ sử dụng
+#   - EA: 5 biến (EA1, EA2, EA3, EA4, EA5) - Môi trường
+#   - PN: 4 biến (PN1, PN2, PN3, PN4) - Chuẩn mực cá nhân
+#   - BI: 4 biến (BI1, BI2, BI3, BI4) - Ý định sử dụng xe điện
 #
 # 2. Các mối quan hệ hồi quy (thứ tự ảnh hưởng mạnh yếu thể hiện qua thứ tự trong 'order')
 #
@@ -50,25 +45,31 @@ latent_correlation_matrix = [
 # ]
 
 factors_config = {
-    "PI":   {"original_items": ["PI1", "PI2", "PI3", "PI4", "PI5"]},
-    "PA":   {"original_items": ["PA1", "PA2", "PA3", "PA4", "PA5"]},
-    "CONF": {"original_items": ["CONF1", "CONF2", "CONF3", "CONF4"]},
-    "PU":   {"original_items": ["PU1", "PU2", "PU3", "PU4"]},
-    "SAT":  {"original_items": ["SAT1", "SAT2", "SAT3", "SAT4"]},
-    "CI":   {"original_items": ["CI1", "CI2"]}
+    "SI":  {"original_items": ["SI1", "SI2", "SI3"]},
+    "GOV": {"original_items": ["GOV1", "GOV2", "GOV3", "GOV4", "GOV5", "GOV6"]},
+    "LCI": {"original_items": ["LCI1", "LCI2", "LCI3"]},
+    "PU":  {"original_items": ["PU1", "PU2", "PU3"]},
+    "PE":  {"original_items": ["PE1", "PE2", "PE3"]},
+    "EA":  {"original_items": ["EA1", "EA2", "EA3", "EA4", "EA5"]},
+    "PN":  {"original_items": ["PN1", "PN2", "PN3", "PN4"]},
+    "BI":  {"original_items": ["BI1", "BI2", "BI3", "BI4"]}
 }
 
 regression_models = [
-    # Perceived Anthropomorphism (PA) ~ Perceived Intelligence (PI)
-    {"dependent": "PA_composite", "independent": ["PI_composite"], "order": ["PI_composite"]},
-    # Confirmation (CONF) ~ PI + PA
-    {"dependent": "CONF_composite", "independent": ["PI_composite", "PA_composite"], "order": ["PI_composite", "PA_composite"]},
-    # Perceived Usefulness (PU) ~ PI + PA + CONF
-    {"dependent": "PU_composite", "independent": ["PI_composite", "PA_composite", "CONF_composite"], "order": ["PI_composite", "CONF_composite", "PA_composite"]},
-    # Satisfaction (SAT) ~ PU + CONF
-    {"dependent": "SAT_composite", "independent": ["PU_composite", "CONF_composite"], "order": ["PU_composite", "CONF_composite"]},
-    # Continuance Intention (CI) ~ PU + SAT
-    {"dependent": "CI_composite", "independent": ["PU_composite", "SAT_composite"], "order": ["PU_composite", "SAT_composite"]}
+    # H1(+): Ảnh hưởng xã hội (SI) -> Ý định sử dụng xe điện (BI)
+    {"dependent": "BI_composite", "independent": ["SI_composite"], "order": ["SI_composite"]},
+    # H2(+): Chính phủ (GOV) -> Ý định sử dụng xe điện (BI)
+    {"dependent": "BI_composite", "independent": ["GOV_composite"], "order": ["GOV_composite"]},
+    # H3(+): Cơ sở hạ tầng sạc (LCI) -> Ý định sử dụng xe điện (BI)
+    {"dependent": "BI_composite", "independent": ["LCI_composite"], "order": ["LCI_composite"]},
+    # H4(+): Nhận thức hữu ích (PU) -> Ý định sử dụng xe điện (BI)
+    {"dependent": "BI_composite", "independent": ["PU_composite"], "order": ["PU_composite"]},
+    # H5(+): Nhận thức dễ sử dụng (PE) -> Ý định sử dụng xe điện (BI)
+    {"dependent": "BI_composite", "independent": ["PE_composite"], "order": ["PE_composite"]},
+    # H6(+): Môi trường (EA) -> Chuẩn mực cá nhân (PN)
+    {"dependent": "PN_composite", "independent": ["EA_composite"], "order": ["EA_composite"]},
+    # H7(+): Chuẩn mực cá nhân (PN) -> Ý định sử dụng xe điện (BI)
+    {"dependent": "BI_composite", "independent": ["PN_composite"], "order": ["PN_composite"]}
 ]
 
 
