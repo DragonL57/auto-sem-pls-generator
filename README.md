@@ -1,10 +1,10 @@
 # Máy Tạo Dữ Liệu Tổng Hợp SEM/PLS
 
-Công cụ tạo dữ liệu tổng hợp cho nghiên cứu Structural Equation Modeling (SEM) và Partial Least Squares (PLS) sử dụng Genetic Algorithm để tối ưu hóa các tham số.
+Công cụ tạo dữ liệu tổng hợp cho nghiên cứu Structural Equation Modeling (SEM) và Partial Least Squares (PLS) sử dụng Bayesian Optimization để tối ưu hóa các tham số.
 
 ## 🌟 Tính Năng
 
-- **Tự động tối ưu hóa** tham số mô hình sử dụng Genetic Algorithm
+- **Tự động tối ưu hóa** tham số mô hình sử dụng Bayesian Optimization
 - **Tạo dữ liệu Likert-scale** chất lượng cao với cấu trúc nhân tố tiềm ẩn
 - **Xác thực thống kê** đầy đủ (Cronbach's Alpha, EFA, KMO-Bartlett, hồi quy)
 - **Xuất kết quả** sang file Excel với nhiều sheet phân tích
@@ -79,28 +79,25 @@ regression_models = [
 ]
 ```
 
-### 4. Tham số Genetic Algorithm
+### 4. Tham số Bayesian Optimization
 ```python
-population_size = 100      # Kích thước quần thể
-num_generations = 10       # Số thế hệ
-num_observations = 367     # Cỡ mẫu
+num_observations = 367     # Số quan sát
+# Tham số tối ưu được tự động điều chỉnh
 ```
 
 ## 🏃 Chạy Chương Trình
 
-### Chạy với cấu hình mặc định
+### Chạy chương trình
 ```bash
 python main.py
 ```
 
-### Tùy chọn số processes
-```bash
-# Sử dụng 4 processes (tốc độ nhanh hơn)
-python main.py --processes 4
+**Lưu ý**: Chương trình tự động sử dụng (số lõi CPU - 1) processes để tối ưu hóa hiệu suất:
+- CPU 8 lõi → 7 processes
+- CPU 4 lõi → 3 processes
+- Luôn giữ lại 1 lõi cho hệ thống
 
-# Sử dụng 1 process (tránh lỗi multiprocessing)
-python main.py --processes 1
-```
+Nếu gặp lỗi multiprocessing, chương trình sẽ tự động giảm số processes.
 
 ## 📊 Kết Quả Đầu Ra
 
@@ -114,21 +111,21 @@ Sau khi chạy xong, chương trình sẽ tạo:
    - Diagnostics: Cronbach's Alpha, KMO-Bartlett
 
 2. **Console Output**: Hiển thị tiến trình tối ưu hóa
-   - Điểm số từng thế hệ
+   - Điểm số từng iteration
    - Thông số tốt nhất tìm được
    - Kết quả xác thực thống kê
 
 3. **Log File**: `output/terminal.log`
    - Ghi lại toàn bộ output của chương trình
 
-## 🧠 Genetic Algorithm
+## 🧠 Bayesian Optimization
 
-Hệ thống sử dụng Genetic Algorithm để tối ưu hóa:
+Hệ thống sử dụng Bayesian Optimization để tối ưu hóa:
 
 - **Parameters**: 
   - Loading strength (0.45-0.65)
   - Error strength (0.35-0.55)
-  - Latent correlations (0.01-0.95)
+  - Latent correlations (0.01-0.7)
 
 - **Fitness Function**: 
   - Cronbach's Alpha (mục tiêu: 0.7-0.9)
@@ -136,10 +133,10 @@ Hệ thống sử dụng Genetic Algorithm để tối ưu hóa:
   - Correlation matrix validity
   - Regression model fit
 
-- **Operators**:
-  - Tournament selection
-  - Simulated binary crossover
-  - Adaptive mutation
+- **Optimization Features**:
+  - Expected Improvement (EI) acquisition function
+  - Early stopping để tối ưu hiệu suất
+  - Tự động điều chỉnh không gian tìm kiếm
 
 ## 📈 Xác Thực Thống Kê
 
@@ -174,7 +171,7 @@ python main.py --processes 1
 ```
 Error: Heywood (Latent Diag > 1)
 ```
-**Giải pháp**: Tăng số thế hệ hoặc điều chỉnh bounds
+**Giải pháp**: Tăng số iterations hoặc điều chỉnh bounds
 
 ### Lỗi Encoding
 ```
@@ -188,7 +185,7 @@ UnicodeEncodeError: 'charmap' codec
 auto-sem-pls-generator/
 ├── main.py                 # File chạy chính
 ├── config.py              # Cấu hình mô hình
-├── genetic_algorithm.py    # Genetic algorithm
+├── bayesian_optimizer.py   # Bayesian optimization
 ├── evaluation.py          # Đánh giá fitness
 ├── data_generation.py     # Tạo dữ liệu
 ├── diagnostics.py         # Xác thực thống kê

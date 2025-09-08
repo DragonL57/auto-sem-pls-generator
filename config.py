@@ -18,12 +18,12 @@
 # Lưu ý: Nếu bạn thêm/bớt latent factor, phải cập nhật lại số dòng/cột cho đúng!
 #
 latent_correlation_matrix = [
-    [1.000, 0.253, 0.629, 0.572, 0.625, 0.567],
-    [0.253, 1.000, 0.436, 0.435, 0.313, 0.302],
-    [0.629, 0.436, 1.000, 0.529, 0.526, 0.526],
-    [0.572, 0.435, 0.529, 1.000, 0.727, 0.626],
-    [0.625, 0.313, 0.526, 0.727, 1.000, 0.535],
-    [0.567, 0.302, 0.526, 0.626, 0.535, 1.000]
+    [1.000, 0.230, 0.204, 0.464, 0.366, 0.170],
+    [0.230, 1.000, 0.290, 0.265, 0.481, 0.424],
+    [0.204, 0.290, 1.000, 0.376, 0.274, 0.298],
+    [0.464, 0.265, 0.376, 1.000, 0.483, 0.307],
+    [0.366, 0.481, 0.274, 0.483, 1.000, 0.145],
+    [0.170, 0.424, 0.298, 0.307, 0.145, 1.000]
 ]
 
 # ================= HƯỚNG DẪN CHỈNH MÔ HÌNH HỒI QUY =================
@@ -80,32 +80,21 @@ n_latent_cor_values = n_latent_factors * (n_latent_factors - 1) // 2
 
 
 
-# --- Genetic Algorithm (GA) Config ---
+# --- Bayesian Optimization Config ---
 num_observations = 367
 
-# GA parameter bounds
-param_bounds = {
-    'latent_cor_values': [0.01, 0.95],
-    'loading_strength': [0.45, 0.65],
-    'error_strength': [0.35, 0.55]
-}
+# Bayesian Optimization parameters - Tối ưu hóa để giảm Heywood cases và tăng hiệu suất
+bo_n_calls = 120                    # Số lần đánh giá (giảm để tập trung vào không gian tìm kiếm hẹp hơn)
+bo_n_initial_points = 15           # Số điểm khởi tạo ngẫu nhiên (tăng để khám phá không gian tốt hơn)
+bo_acq_func = 'EI'                 # Acquisition function (Expected Improvement)
+bo_n_jobs = -1                     # Số processes (-1 = tất cả cores)
+bo_early_stopping = True           # Bật early stopping
+bo_patience = 12                   # Số iteration chờ trước khi dừng (tăng để cho phép hội tụ tốt hơn)
 
-
-bounds_list = []
-for _ in range(n_latent_cor_values):
-    bounds_list.append(param_bounds['latent_cor_values'])
-bounds_list.append(param_bounds['error_strength'])
-bounds_list.append(param_bounds['loading_strength'])
-
-# GA hyperparameters
-population_size = 100
-num_generations = 10
-crossover_rate = 0.8
-base_mutation_rate = 0.15
-mutation_scale = 0.08
-elitism_count = 5
-stagnation_threshold = 7
-mutation_increase_factor = 1.3
-mutation_decrease_factor = 0.8
-max_mutation_rate = 0.3
-min_mutation_rate = 0.05
+# Search space bounds for Bayesian Optimization - Tối ưu hóa để giảm Heywood cases
+bo_latent_cor_min = 0.01           # Giá trị tối thiểu cho tương quan tiềm ẩn
+bo_latent_cor_max = 0.5            # Giá trị tối đa cho tương quan tiềm ẩn (giảm mạnh để tránh Heywood)
+bo_error_strength_min = 0.25       # Giá trị tối thiểu cho error strength (giảm để tăng reliability)
+bo_error_strength_max = 0.45       # Giá trị tối đa cho error strength
+bo_loading_strength_min = 0.55     # Giá trị tối thiểu cho loading strength (tăng để tăng factor loadings)
+bo_loading_strength_max = 0.75     # Giá trị tối đa cho loading strength

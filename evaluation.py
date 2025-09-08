@@ -73,7 +73,7 @@ def evaluate_parameters_wrapper(args):
     composite_scores = composite_scores.dropna()
 
     if composite_scores.empty:
-        return -1_000_000, "Empty Composite Scores"
+        return -500_000, "Empty Composite Scores"
 
     # Thêm biến tương tác nếu mô hình cần (không ảnh hưởng logic phạt gốc nếu không dùng)
     if {"DIS_composite", "SC_composite"}.issubset(composite_scores.columns):
@@ -103,7 +103,7 @@ def evaluate_parameters_wrapper(args):
     efa_score = 0
     data_for_efa = data_for_analysis.dropna()
     if data_for_efa.empty or data_for_efa.shape[1] < n_latent_factors:
-        return -1_000_000, "EFA Not Enough Data"
+        return -500_000, "EFA Not Enough Data"
 
     try:
         fa_promax = FactorAnalyzer(n_factors=n_latent_factors, rotation="promax", method='principal', use_smc=True)
@@ -112,9 +112,9 @@ def evaluate_parameters_wrapper(args):
         loadings = fa_promax.loadings_
         communalities = fa_promax.get_communalities()
 
-        # Heywood cases trong loadings hoặc communalities (PHẠT RẤT NẶNG)
+        # Heywood cases trong loadings hoặc communalities (PHẠT NẶNG NHƯNG HỢP LÝ)
         if np.any(loadings > 1.0 + np.finfo(float).eps) or np.any(communalities > 1.0 + np.finfo(float).eps):
-            return -10_000_000, "Heywood (EFA Loadings/Communalities > 1)"
+            return -2_000_000, "Heywood (EFA Loadings/Communalities > 1)"
 
         # Mean Item Complexity (MIC)
         if np.any(np.sum(loadings**4, axis=1) == 0):
@@ -155,7 +155,7 @@ def evaluate_parameters_wrapper(args):
         expected_order = model_spec["order"]
 
         if not all(v in composite_scores_std.columns for v in [dependent_var] + independent_vars):
-            return -1_000_000, "Missing Regression Vars"
+            return -500_000, "Missing Regression Vars"
 
         X = sm.add_constant(composite_scores_std[independent_vars])
         y = composite_scores_std[dependent_var]
@@ -163,41 +163,41 @@ def evaluate_parameters_wrapper(args):
         try:
             model = sm.OLS(y, X).fit()
 
-            # R-squared (ĐÃ ĐIỀU CHỈNH THƯỞNG)
-            r_squared_score += model.rsquared * 200
+            # R-squared (ĐÃ ĐIỀU CHỈNH THƯỞNG) - Tối ưu cho parameter ranges mới
+            r_squared_score += model.rsquared * 300
+            if model.rsquared >= 0.3:
+                r_squared_score += (model.rsquared - 0.3) * 500
             if model.rsquared >= 0.4:
-                r_squared_score += (model.rsquared - 0.4) * 400
-            if model.rsquared >= 0.5:
-                r_squared_score += (model.rsquared - 0.5) * 1500
+                r_squared_score += (model.rsquared - 0.4) * 1000
 
-            # Hình phạt R-squared thấp (< 0.5)
-            if model.rsquared < 0.5:
-                r_squared_score -= (0.5 - model.rsquared) * 10000
+            # Hình phạt R-squared thấp (< 0.3) - Giảm penalty cho parameter ranges mới
+            if model.rsquared < 0.3:
+                r_squared_score -= (0.3 - model.rsquared) * 2000
 
-            # Beta Significance & Negative Beta
+            # Beta Significance & Negative Beta - Giảm penalty cho parameter ranges mới
             for var in independent_vars:
                 p_value = model.pvalues[var]
                 beta_coef = model.params[var]
 
                 if beta_coef < 0:
-                    negative_beta_penalty -= 5000
+                    negative_beta_penalty -= 2000
 
                 if p_value < 0.05:
-                    beta_significance_score += 100
+                    beta_significance_score += 150
                 else:
-                    beta_significance_score -= 2000
+                    beta_significance_score -= 1000
 
-            # Thứ tự Beta
+            # Thứ tự Beta - Giảm penalty cho parameter ranges mới
             actual_betas = model.params.drop("const").sort_values(ascending=False)
             actual_order_filtered = [var for var in actual_betas.index if var in expected_order]
 
             if len(actual_order_filtered) == len(expected_order):
                 if actual_order_filtered == expected_order:
-                    beta_order_score += 200
+                    beta_order_score += 300
                 else:
-                    beta_order_score -= 8000
+                    beta_order_score -= 2000
             else:
-                beta_order_score -= 4000
+                beta_order_score -= 1000
         except (ValueError, np.linalg.LinAlgError, sm.tools.sm_exceptions.PerfectSeparationError) as e:
             return -1_000_000, f"Regression Error: {e}"
 

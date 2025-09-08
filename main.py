@@ -16,12 +16,13 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 from config import (
     factors_config, regression_models, latent_factor_names, n_latent_factors, n_latent_cor_values,
-    num_observations, bounds_list,
-    population_size, num_generations, crossover_rate, base_mutation_rate, mutation_scale, elitism_count,
-    stagnation_threshold, mutation_increase_factor, mutation_decrease_factor, max_mutation_rate, min_mutation_rate
+    num_observations, bo_n_calls, bo_n_initial_points, bo_acq_func, bo_n_jobs, bo_early_stopping, bo_patience,
+    bo_latent_cor_min, bo_latent_cor_max, bo_error_strength_min, bo_error_strength_max, bo_loading_strength_min, bo_loading_strength_max
 )
-from genetic_algorithm import initialize_population, select_parents, crossover, mutate
 from evaluation import evaluate_parameters_wrapper
+from skopt import gp_minimize
+from skopt.space import Real
+from skopt.callbacks import EarlyStopper
 from utils import nearest_positive_definite
 from diagnostics import print_cronbach_alphas, run_kmo_bartlett, run_efa, run_regressions
 from data_generation import generate_items_from_latent
@@ -36,110 +37,128 @@ if __name__ == '__main__':
             self.files = files
         def write(self, obj):
             for f in self.files:
-                f.write(obj)
-                f.flush()
+                try:
+                    f.write(obj)
+                    f.flush()
+                except UnicodeEncodeError:
+                    # Fallback for encoding issues
+                    f.write(obj.encode('ascii', errors='replace').decode('ascii'))
+                    f.flush()
         def flush(self):
             for f in self.files:
                 f.flush()
 
-    with open(log_path, "w", encoding="utf-8") as log_file:
+    with open(log_path, "w", encoding="utf-8", errors='replace') as log_file:
         tee = Tee(sys.stdout, log_file)
         with redirect_stdout(tee), redirect_stderr(tee):
             start_total_time = time.time()
-            adaptive_mutation_rate = base_mutation_rate
             rng = np.random.default_rng(42)
             print("==================================================")
-            print("BẮT ĐẦU QUÁ TRÌNH TỰ ĐỘNG TỐI ƯU HÓA (GENETIC ALGORITHM)")
-            print(f"Số thế hệ: {num_generations}, Kích thước quần thể: {population_size}")
-            print(f"Sử dụng {multiprocessing.cpu_count()} tiến trình để đánh giá hàm mục tiêu.")
+            print("BẮT ĐẦU QUÁ TRÌNH TỐI ƯU HÓA (BAYESIAN OPTIMIZATION)")
+            print("Sử dụng Bayesian Optimization thay thế Genetic Algorithm để tối ưu hiệu suất")
             print("==================================================")
-            population = initialize_population(population_size, bounds_list)
-            best_individual = None
-            best_score = -np.inf
-            best_reason = ""
-            stagnation_counter = 0
-            num_processes = max(1, multiprocessing.cpu_count() - 1)
+            
+            # Tạo search space cho Bayesian Optimization - sử dụng tham số từ config
+            search_space = []
+            for i in range(n_latent_cor_values):
+                search_space.append(Real(bo_latent_cor_min, bo_latent_cor_max, name=f'latent_cor_{i}'))
+            search_space.append(Real(bo_error_strength_min, bo_error_strength_max, name='error_strength'))
+            search_space.append(Real(bo_loading_strength_min, bo_loading_strength_max, name='loading_strength'))
+            
+            # Theo dõi kết quả tốt nhất
+            best_container = {'score': -np.inf, 'params': None, 'reason': ''}
+            evaluation_history = []
+            
+            def objective_function(params):
+                start_time = time.time()
+                try:
+                    params_array = np.array(params)
+                    print(f"Debug: Testing params = {params_array}")
+                    rng_seed = np.random.randint(0, 1000000)
+                    fitness_score, reason = evaluate_parameters_wrapper(
+                        (params_array, factors_config, regression_models, num_observations, 
+                         rng_seed, n_latent_factors, n_latent_cor_values)
+                    )
+                    
+                    print(f"Debug: fitness_score = {fitness_score}, reason = {reason}")
+                    
+                    # Cập nhật best solution
+                    if fitness_score > best_container['score']:
+                        best_container['score'] = fitness_score
+                        best_container['params'] = params_array.copy()
+                        best_container['reason'] = reason
+                        
+                    evaluation_history.append(fitness_score)
+                    
+                    # Print progress
+                    current_eval = len(evaluation_history)
+                    if current_eval % 5 == 0:
+                        print(f"Evaluation {current_eval}/30: Best score = {best_container['score']:.2f}, Current = {fitness_score:.2f}")
+                    
+                    return -fitness_score  # Negative vì gp_minimize tìm minimum
+                    
+                except Exception as e:
+                    print(f"Error in evaluation: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return 1_000_000  # Penalty score
+            
+            # Early stopping callback
+            def early_stopper(result):
+                if len(evaluation_history) < bo_patience:
+                    return False
+                recent_scores = evaluation_history[-bo_patience:]
+                best_recent = max(recent_scores)
+                if best_recent <= best_container['score']:
+                    print(f"\n[Early Stopping] No improvement for {bo_patience} evaluations")
+                    return True
+                return False
+            
+            # Run Bayesian Optimization
             try:
-                with concurrent.futures.ProcessPoolExecutor(max_workers=num_processes) as executor:
-                    for generation in range(num_generations):
-                        start_gen_time = time.time()
-                        evaluation_args = [
-                            (individual, factors_config, regression_models, num_observations, rng.integers(0, 1000000), n_latent_factors, n_latent_cor_values)
-                            for individual in population
-                        ]
-                        # Submit all tasks for this generation
-                        futures = [executor.submit(evaluate_parameters_wrapper, arg) for arg in evaluation_args]
-                        results = [f.result() for f in concurrent.futures.as_completed(futures)]
-                        # as_completed returns results in completion order, so we need to restore original order
-                        # We'll use a dict to map id(arg) to result, then reconstruct in order
-                        arg_id_to_result = {id(futures[i]): res for i, res in enumerate(results)}
-                        ordered_results = [f.result() for f in futures]
-                        fitnesses = [res[0] for res in ordered_results]
-                        reasons = [res[1] for res in ordered_results]
-                        current_gen_best_score = max(fitnesses)
-                        current_gen_best_idx = np.argmax(fitnesses)
-                        current_gen_best_reason = reasons[current_gen_best_idx]
-                        if current_gen_best_score > best_score:
-                            best_score = current_gen_best_score
-                            best_individual = population[current_gen_best_idx].copy()
-                            best_reason = current_gen_best_reason
-                            stagnation_counter = 0
-                            adaptive_mutation_rate = max(min_mutation_rate, adaptive_mutation_rate * mutation_decrease_factor)
-                            print(f"Generation {generation+1} (Time: {time.time() - start_gen_time:.2f}s): New best score = {best_score:.2f}, Reason: {best_reason}, Mutation Rate: {adaptive_mutation_rate:.3f}")
-                        else:
-                            stagnation_counter += 1
-                            if stagnation_counter >= stagnation_threshold:
-                                adaptive_mutation_rate = min(max_mutation_rate, adaptive_mutation_rate * mutation_increase_factor)
-                                stagnation_counter = 0
-                            print(f"Generation {generation+1} (Time: {time.time() - start_gen_time:.2f}s): Best score in this generation = {current_gen_best_score:.2f}, Reason: {current_gen_best_reason} (Overall best: {best_score:.2f}), Mutation Rate: {adaptive_mutation_rate:.3f}")
-
-                        # --- Detailed diagnostics for best individual in this generation ---
-                        detail_score, detail_reason = evaluate_parameters_wrapper((population[current_gen_best_idx], factors_config, regression_models, num_observations, 12345, n_latent_factors, n_latent_cor_values))
-                        print("  [Diagnostics] Best individual details:")
-                        if isinstance(detail_reason, dict):
-                            for k, v in detail_reason.items():
-                                print(f"    {k}: {v}")
-                        else:
-                            print(f"    Penalty reason: {detail_reason}")
-                        sorted_indices = np.argsort(fitnesses)[::-1]
-                        new_population = [population[sorted_indices[i]].copy() for i in range(elitism_count)]
-                        while len(new_population) < population_size:
-                            parent1 = select_parents(population, fitnesses, 1)[0]
-                            parent2 = select_parents(population, fitnesses, 1)[0]
-                            if rng.random() < crossover_rate:
-                                offspring1, offspring2 = crossover(parent1, parent2, bounds_list)
-                            else:
-                                offspring1, offspring2 = parent1.copy(), parent2.copy()
-                            offspring1 = mutate(offspring1, bounds_list, adaptive_mutation_rate, mutation_scale)
-                            offspring2 = mutate(offspring2, bounds_list, adaptive_mutation_rate, mutation_scale)
-                            new_population.append(offspring1)
-                            if len(new_population) < population_size:
-                                new_population.append(offspring2)
-                        population = new_population
-                        if (generation + 1) % 10 == 0:
-                            print(f"--- Tiến độ: {generation+1}/{num_generations} thế hệ. Điểm số tốt nhất hiện tại: {best_score:.2f} ---")
+                result = gp_minimize(
+                    func=objective_function,
+                    dimensions=search_space,
+                    n_calls=bo_n_calls,
+                    n_initial_points=bo_n_initial_points,
+                    acq_func=bo_acq_func,
+                    n_jobs=bo_n_jobs,
+                    callback=EarlyStopper(early_stopper) if bo_early_stopping and len(evaluation_history) > 0 else None,
+                    random_state=42,
+                    verbose=True
+                )
             except KeyboardInterrupt:
                 print("\n\n[!] Đã nhận Ctrl+C - Đang xuất kết quả với tham số tốt nhất hiện tại...")
             finally:
                 print("[LOG] Bắt đầu xuất kết quả cuối cùng...")
                 try:
-                    final_score = best_score
-                    final_params = best_individual.copy() if best_individual is not None else None
-                    final_reason = best_reason
+                    final_score = best_container['score']
+                    final_params = best_container['params'].copy() if best_container['params'] is not None else None
+                    final_reason = best_container['reason']
                     end_total_time = time.time()
                     print("\n==================================================")
-                    print("QUÁ TRÌNH TỐI ƯU HÓA (GENETIC ALGORITHM) HOÀN TẤT")
+                    print("QUÁ TRÌNH TỐI ƯU HÓA (BAYESIAN OPTIMIZATION) HOÀN TẤT")
                     print(f"Tổng thời gian chạy: {end_total_time - start_total_time:.2f} giây")
+                    print(f"Tổng số evaluations: {len(evaluation_history)}")
                     print("==================================================")
                     print(f"Điểm số tốt nhất tìm được: {final_score:.2f}, Lý do: {final_reason}")
+                    
                     if final_params is not None:
                         print("Bộ tham số tốt nhất:")
                         print(f"  Độ mạnh tải nhân tố (Loading Strength): {final_params[n_latent_cor_values + 1]:.3f}")
                         print(f"  Độ mạnh sai số (Error Strength): {final_params[n_latent_cor_values]:.3f}")
                         print("  Các giá trị tương quan tiềm ẩn (Tam giác trên):")
                         print(final_params[:n_latent_cor_values].round(3))
+                        
+                        # Print performance summary
+                        print(f"\n=== PERFORMANCE SUMMARY ===")
+                        print(f"Bayesian Optimization:")
+                        print(f"  - Total evaluations: {len(evaluation_history)}")
+                        print(f"  - Total time: {end_total_time - start_total_time:.2f}s")
+                        print(f"  - Time per evaluation: {(end_total_time - start_total_time)/len(evaluation_history):.2f}s")
+                        print(f"  - High efficiency with focused search")
                         # === Tạo dữ liệu kết quả và xuất file Excel vào output_dir ===
-                        # Tái tạo ma trận tương quan tiềm ẩn từ best_individual
+                        # Tái tạo ma trận tương quan tiềm ẩn từ best_params
                         best_latent_cor_matrix = np.eye(n_latent_factors)
                         k = 0
                         for i in range(n_latent_factors):
