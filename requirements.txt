@@ -1,8 +1,0 @@
-numpy
-pandas
-scipy
-scikit-learn
-statsmodels
-factor_analyzer
-openpyxl
-pydantic>=1.8.0

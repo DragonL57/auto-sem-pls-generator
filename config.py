@@ -24,7 +24,7 @@ latent_correlation_matrix = [
     [0.572, 0.435, 0.529, 1.000, 0.727, 0.626],
     [0.625, 0.313, 0.526, 0.727, 1.000, 0.535],
     [0.567, 0.302, 0.526, 0.626, 0.535, 1.000]
-],
+]
 
 # ================= HƯỚNG DẪN CHỈNH MÔ HÌNH HỒI QUY =================
 # - Chỉ cần chỉnh sửa danh sách factors_config và regression_models bên dưới để thay đổi mô hình, biến độc lập/phụ thuộc, hoặc thêm biến interaction.
@@ -99,7 +99,7 @@ bounds_list.append(param_bounds['loading_strength'])
 
 # GA hyperparameters
 population_size = 100
-num_generations = 200
+num_generations = 10
 crossover_rate = 0.8
 base_mutation_rate = 0.15
 mutation_scale = 0.08
