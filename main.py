@@ -26,6 +26,7 @@ from skopt.callbacks import EarlyStopper
 from utils import nearest_positive_definite
 from diagnostics import print_cronbach_alphas, run_kmo_bartlett, run_efa, run_regressions
 from data_generation import generate_items_from_latent
+from excel_export import export_multi_sheet_excel
 
 if __name__ == '__main__':
     # Tạo thư mục output nếu chưa có
@@ -244,11 +245,17 @@ if __name__ == '__main__':
                                 if {var1, var2}.issubset(composite_scores_final.columns):
                                     composite_scores_final[term] = composite_scores_final[var1] * composite_scores_final[var2]
                         composite_scores_final = composite_scores_final.dropna()
-                        data_for_excel_final = pd.concat([data_for_analysis_final, composite_scores_final], axis=1)
                         output_excel_path = os.path.join(output_dir, "output.xlsx")
                         try:
-                            data_for_excel_final.to_excel(output_excel_path, index=False)
-                            print(f"\n--- Dữ liệu giả mạo cuối cùng đã được lưu vào: {output_excel_path} ---\n")
+                            export_multi_sheet_excel(
+                                data_for_analysis_final, 
+                                composite_scores_final, 
+                                factors_config, 
+                                regression_models, 
+                                n_latent_factors, 
+                                output_excel_path
+                            )
+                            print(f"\n--- Dữ liệu đa sheet đã được lưu vào: {output_excel_path} ---\n")
                         except (FileNotFoundError, PermissionError, ValueError) as e:
                             print(f"Lỗi khi lưu file Excel: {e}")
                         # Diagnostics chi tiết cuối cùng

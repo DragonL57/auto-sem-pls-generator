@@ -17,7 +17,16 @@
 #
 # Lưu ý: Nếu bạn thêm/bớt latent factor, phải cập nhật lại số dòng/cột cho đúng!
 #
-latent_correlation_matrix = None
+latent_correlation_matrix = [
+    [1.000, 0.247, 0.315, 0.043, 0.331, 0.250, 0.152, 0.314],
+    [0.247, 1.000, 0.219, 0.295, 0.350, 0.134, 0.258, 0.291],
+    [0.315, 0.219, 1.000, 0.125, 0.166, 0.352, 0.166, 0.120],
+    [0.043, 0.295, 0.125, 1.000, 0.248, 0.129, 0.332, 0.389],
+    [0.331, 0.350, 0.166, 0.248, 1.000, 0.288, 0.221, 0.328],
+    [0.250, 0.134, 0.352, 0.129, 0.288, 1.000, 0.399, 0.365],
+    [0.152, 0.258, 0.166, 0.332, 0.221, 0.399, 1.000, 0.345],
+    [0.314, 0.291, 0.120, 0.389, 0.328, 0.365, 0.345, 1.000]
+]
 
 # ================= HƯỚNG DẪN CHỈNH MÔ HÌNH HỒI QUY =================
 # - Chỉ cần chỉnh sửa danh sách factors_config và regression_models bên dưới để thay đổi mô hình, biến độc lập/phụ thuộc, hoặc thêm biến interaction.
@@ -85,7 +94,7 @@ n_latent_cor_values = n_latent_factors * (n_latent_factors - 1) // 2
 num_observations = 367
 
 # Bayesian Optimization parameters - Tối ưu hóa để giảm Heywood cases và tăng hiệu suất
-bo_n_calls = 120                    # Số lần đánh giá (giảm để tập trung vào không gian tìm kiếm hẹp hơn)
+bo_n_calls = 50                    # Số lần đánh giá (giảm để tập trung vào không gian tìm kiếm hẹp hơn)
 bo_n_initial_points = 15           # Số điểm khởi tạo ngẫu nhiên (tăng để khám phá không gian tốt hơn)
 bo_acq_func = 'EI'                 # Acquisition function (Expected Improvement)
 bo_n_jobs = -1                     # Số processes (-1 = tất cả cores)
