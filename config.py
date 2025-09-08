@@ -37,12 +37,16 @@ latent_correlation_matrix = None
 #   - PN: 4 biến (PN1, PN2, PN3, PN4) - Chuẩn mực cá nhân
 #   - BI: 4 biến (BI1, BI2, BI3, BI4) - Ý định sử dụng xe điện
 #
-# 2. Các mối quan hệ hồi quy (thứ tự ảnh hưởng mạnh yếu thể hiện qua thứ tự trong 'order')
+# 2. Các mối quan hệ hồi quy:
+#    - 'dependent': Biến phụ thuộc (kết quả)
+#    - 'independent': Danh sách các biến độc lập (nhân tố ảnh hưởng)
+#    - 'order': Thứ tự mong đợi của độ mạnh ảnh hưởng từ mạnh đến yếu
 #
-# regression_models = [
-#     {"dependent": "Y", "independent": ["A", "B", "AxB"], "order": ["A", "B", "AxB"]},
-#     ...
-# ]
+#    Ví dụ:
+#    regression_models = [
+#        {"dependent": "Y", "independent": ["A", "B", "C"], "order": ["A", "B", "C"]},
+#        # Trong mô hình này, A được kỳ vọng sẽ có ảnh hưởng mạnh nhất, tiếp theo là B, yếu nhất là C
+#    ]
 
 factors_config = {
     "SI":  {"original_items": ["SI1", "SI2", "SI3"]},
@@ -56,20 +60,16 @@ factors_config = {
 }
 
 regression_models = [
-    # H1(+): Ảnh hưởng xã hội (SI) -> Ý định sử dụng xe điện (BI)
-    {"dependent": "BI_composite", "independent": ["SI_composite"], "order": ["SI_composite"]},
-    # H2(+): Chính phủ (GOV) -> Ý định sử dụng xe điện (BI)
-    {"dependent": "BI_composite", "independent": ["GOV_composite"], "order": ["GOV_composite"]},
-    # H3(+): Cơ sở hạ tầng sạc (LCI) -> Ý định sử dụng xe điện (BI)
-    {"dependent": "BI_composite", "independent": ["LCI_composite"], "order": ["LCI_composite"]},
-    # H4(+): Nhận thức hữu ích (PU) -> Ý định sử dụng xe điện (BI)
-    {"dependent": "BI_composite", "independent": ["PU_composite"], "order": ["PU_composite"]},
-    # H5(+): Nhận thức dễ sử dụng (PE) -> Ý định sử dụng xe điện (BI)
-    {"dependent": "BI_composite", "independent": ["PE_composite"], "order": ["PE_composite"]},
-    # H6(+): Môi trường (EA) -> Chuẩn mực cá nhân (PN)
+    # Mô hình 1: Môi trường (EA) tác động đến Chuẩn mực cá nhân (PN)
+    # "Môi trường" là yếu tố mạnh nhất và nó tác động đến PN
     {"dependent": "PN_composite", "independent": ["EA_composite"], "order": ["EA_composite"]},
-    # H7(+): Chuẩn mực cá nhân (PN) -> Ý định sử dụng xe điện (BI)
-    {"dependent": "BI_composite", "independent": ["PN_composite"], "order": ["PN_composite"]}
+
+    # Mô hình 2: Các yếu tố tác động đến Ý định sử dụng xe điện (BI)
+    # Thứ tự các biến độc lập được sắp xếp theo độ mạnh ảnh hưởng từ mạnh nhất đến yếu nhất:
+    # "dễ sử dụng- sự hữu ích- chính phủ- cơ sở hạ tầng- ảnh hưởng xã hội- chuẩn mực cá nhân"
+    {"dependent": "BI_composite",
+     "independent": ["PE_composite", "PU_composite", "GOV_composite", "LCI_composite", "SI_composite", "PN_composite"],
+     "order": ["PE_composite", "PU_composite", "GOV_composite", "LCI_composite", "SI_composite", "PN_composite"]}
 ]
 
 

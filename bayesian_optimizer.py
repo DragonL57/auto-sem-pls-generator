@@ -21,20 +21,20 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
 class BayesianOptimizer:
-    def __init__(self, config):
+    def __init__(self, optimizer_config):
         """
         Khởi tạo Bayesian Optimizer
         
         Args:
-            config: Dictionary containing optimization parameters
+            optimizer_config: Dictionary containing optimization parameters
         """
-        self.config = config
-        self.n_calls = config.get('n_calls', bo_n_calls)  # Số lần đánh giá
-        self.n_initial_points = config.get('n_initial_points', bo_n_initial_points)  # Số điểm khởi tạo
-        self.acq_func = config.get('acq_func', bo_acq_func)  # Acquisition function
-        self.n_jobs = config.get('n_jobs', bo_n_jobs)  # Số processes (-1 = tất cả)
-        self.early_stopping = config.get('early_stopping', bo_early_stopping)
-        self.patience = config.get('patience', bo_patience)  # Số iteration chờ trước khi dừng
+        self.config = optimizer_config
+        self.n_calls = optimizer_config.get('n_calls', bo_n_calls)  # Số lần đánh giá
+        self.n_initial_points = optimizer_config.get('n_initial_points', bo_n_initial_points)  # Số điểm khởi tạo
+        self.acq_func = optimizer_config.get('acq_func', bo_acq_func)  # Acquisition function
+        self.n_jobs = optimizer_config.get('n_jobs', bo_n_jobs)  # Số processes (-1 = tất cả)
+        self.early_stopping = optimizer_config.get('early_stopping', bo_early_stopping)
+        self.patience = optimizer_config.get('patience', bo_patience)  # Số iteration chờ trước khi dừng
         
         # Khởi tạo search space - giảm upper bound để tránh Heywood cases
         self.search_space = self._create_search_space()
@@ -110,7 +110,7 @@ class BayesianOptimizer:
             # Return negative vì gp_minimize tìm minimum
             return -fitness_score
             
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError, IndexError, KeyError) as e:
             print(f"Error in evaluation: {e}")
             # Trả về penalty score nếu có lỗi
             return 1_000_000
@@ -137,7 +137,7 @@ class BayesianOptimizer:
             callback = self._create_early_stopper()
         
         # Run Bayesian Optimization
-        result = gp_minimize(
+        _result = gp_minimize(
             func=self.objective_function,
             dimensions=self.search_space,
             n_calls=self.n_calls,
@@ -169,7 +169,7 @@ class BayesianOptimizer:
         Returns:
             EarlyStopper: Callback object
         """
-        def early_stopper(result):
+        def early_stopper(_result):
             if len(self.evaluation_history) < self.patience:
                 return False
                 
